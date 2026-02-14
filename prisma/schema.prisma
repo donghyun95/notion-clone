@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+
+  // 멤버로 속한 워크스페이스들
+  workspaces WorkspaceMember[]
+
+  // 작성한 페이지들
+  pages Page[]
+
+  // ✅ 내가 owner인 워크스페이스들 (이 줄 추가)
+  ownedWorkspaces Workspace[] @relation("WorkspaceOwner")
+}
+
+model Workspace {
+  id        String            @id @default(cuid())
+  name      String
+  ownerId   String
+  owner     User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  members   WorkspaceMember[]
+  pages     Page[]
+  createdAt DateTime          @default(now())
+}
+
+model WorkspaceMember {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        Role
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@unique([workspaceId, userId])
+}
+
+model Page {
+  id          String  @id @default(cuid())
+  title       String
+  workspaceId String
+  parentId    String?
+  authorId    String
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  author    User      @relation(fields: [authorId], references: [id])
+  parent    Page?     @relation("PageHierarchy", fields: [parentId], references: [id])
+  children  Page[]    @relation("PageHierarchy")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  OWNER
+  EDITOR
+  VIEWER
+}
