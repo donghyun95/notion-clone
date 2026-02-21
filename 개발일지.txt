@@ -1,0 +1,106 @@
+1. 기본세팅 완료 후 실시간 협업 기능이 작동이 안되서 ws서버에서 onconnet 및 ondisconnect 이벤트 발생시 consolelog 붙여서 확인해본결과
+  mount 되었다가 cleanup 되는 현상이발생 => 인스턴스를 여러번 생성으로 추측 => useRef로 변경
+[dev:ws] CONNECT home-document
+[dev:ws] CONNECT home-document
+[dev:ws] DISCONNECT home-document
+[dev:ws] DISCONNECT home-document
+[dev:ws] CONNECT home-document
+[dev:ws] CONNECT home-document
+[dev:ws] DISCONNECT home-document
+[dev:ws] CONNECT home-document
+[dev:ws] CONNECT home-document
+[dev:ws] DISCONNECT home-document
+
+
+
+Next dynamic() 에서 named export 와 default export 차이
+dynamic이 모듈을 죽임
+증상: Element type is invalid. Received a promise
+원인: default export 안 해서 React가 컴포넌트 대신 모듈을 렌더
+export default function EditorClient() {}
+■ named export
+여러 개를 이름 붙여서 내보내는 방식.
+import하면 “모듈 객체에서 속성을 꺼내 쓰는 구조”가 된다.
+dynamic import가 그대로 넘기면 React는 컴포넌트가 아니라 객체를 받아서 에러 난다.
+
+■ default export
+파일의 대표 값을 하나만 내보내는 방식.
+dynamic import가 자동으로 이 값을 컴포넌트로 취급한다.
+그래서 React가 정상 렌더한다.
+
+■ 왜 에러 났었나
+dynamic import는 기본적으로 “모듈 객체”를 반환한다.
+React는 “함수(컴포넌트)”를 받아야 한다.
+named export 상태에서는 객체가 넘어가고
+default export 상태에서는 함수가 넘어간다.
+
+■ 결론
+named export = 직접 꺼내줘야 React가 이해함
+default export = React가 바로 이해함
+
+즉 문제는 문법이 아니라
+React가 받은 값의 타입(객체 vs 함수)이었다.
+
+
+
+
+
+StrictMode가 소켓을 죽임
+  5) CONNECT/DISCONNECT 반복
+
+증상: 서버 로그 롤러코스터
+
+원인: React Strict Mode 더블 마운트
+
+해결:reactStrictMode: false
+
+
+
+3) Hocuspocus 서버가 안 켜짐
+
+증상: WS 연결 실패
+
+원인: 옛날 예제 Server.configure() 사용
+
+해결:
+
+const server = new Server({ port: 1234 });
+server.listen();
+
+
+
+
+
+provider 중복 생성이 동기화를 죽임
+  4) 연결되는데 협업 안 됨
+
+증상: 탭 두 개 열어도 동기화 안됨
+
+원인: React가 provider를 여러 번 생성 → 서로 다른 Y.Doc 사용
+
+해결:useRef로 Y.Doc + Provider 1회 생성 고정
+
+
+
+CSS가 UI를 죽임
+  6) 협업 되는데 UI 박살
+
+증상: 줄간격/리스트/커서 이상
+
+원인: CSS 로드 순서 + reset 충돌
+
+해결:
+
+root layout.tsx에서
+blocknote css → globals.css 순서로 import
+
+
+SSR 환경에서 브라우저 전용 에디터 충돌 해결
+
+dynamic import 모듈 타입 문제 해결
+
+WebSocket 생명주기와 React 마운트 사이클 불일치 해결
+
+중복 provider 생성으로 인한 CRDT 동기화 실패 해결
+
+CSS reset 충돌로 인한 에디터 레이아웃 붕괴 해결

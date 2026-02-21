@@ -8,6 +8,12 @@ const server = new Server({
   // extensions: [
   //   new SQLite({ database: "hocuspocus.sqlite" }),
   // ],
+  onConnect({ documentName }) {
+    console.log("CONNECT", documentName);
+  },
+  onDisconnect({ documentName }) {
+    console.log("DISCONNECT", documentName);
+  },
 });
 
 server.listen();

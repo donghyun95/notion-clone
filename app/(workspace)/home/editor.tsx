@@ -4,56 +4,52 @@ import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
+import { useRef, useEffect } from "react";
 
-import "@blocknote/core/fonts/inter.css";
-import "@blocknote/mantine/style.css";
-import { useEffect, useMemo } from "react";
-
-type Props = {
-  docId: string; // 같은 문서에 들어갈 사람들은 docId가 같아야 함(= room/name)
-  userName: string;
-  userColor: string; // "#ff0000" 같은 형태
-  serverUrl?: string; // 기본 ws://localhost:1234
-};
-
-export default function CollaborativeBlockNote({
+export default function EditorClient({
   docId,
-  userName,
-  userColor,
-  serverUrl = "ws://localhost:1234",
-}: Props) {
-  // Next.js라면 "클라이언트에서만" 만들기 위해 useMemo 사용
-  const { ydoc, provider } = useMemo(() => {
-    const ydoc = new Y.Doc();
+  name,
+  color,
+}: {
+  docId: string;
+}) {
+  // 1. 문서 1개만 만들기
+  const ydocRef = useRef<Y.Doc | null>(null);
+  if (!ydocRef.current) {
+    ydocRef.current = new Y.Doc();
+    console.log("Y.Doc 생성됨");
+    console.log(ydocRef.current);
+  }
 
-    const provider = new HocuspocusProvider({
-      url: serverUrl,
-      name: docId, // 문서/룸 식별자 (모든 클라이언트에서 동일해야 같은 문서)
-      document: ydoc, // Y.Doc 연결 :contentReference[oaicite:5]{index=5}
+  // 2. 웹소켓 연결도 1개만 만들기
+  const providerRef = useRef<HocuspocusProvider | null>(null);
+  if (!providerRef.current) {
+    providerRef.current = new HocuspocusProvider({
+      url: "ws://127.0.0.1:1234",
+      name: docId,
+      document: ydocRef.current,
     });
 
-    return { ydoc, provider };
-  }, [docId, serverUrl]);
+    console.log("WebSocket 연결 생성됨");
+  }
 
+  // 3. BlockNote에 연결
   const editor = useCreateBlockNote({
     collaboration: {
-      provider, // Yjs Provider
-      fragment: ydoc.getXmlFragment("document-store"),
-      user: {
-        name: userName,
-        color: userColor,
-      },
-      showCursorLabels: "activity",
+      provider: providerRef.current,
+      fragment: ydocRef.current.getXmlFragment("document-store"),
+      user: { name: "user", color: "#4eaf41" },
     },
   });
 
-  // 정리(안 하면 탭 이동/언마운트 때 소켓/메모리 누수)
+  // 4. 페이지 떠날 때 정리
   useEffect(() => {
     return () => {
-      provider.destroy();
-      ydoc.destroy();
+      console.log("연결 정리");
+      providerRef.current?.destroy();
+      ydocRef.current?.destroy();
     };
-  }, [provider, ydoc]);
+  }, []);
 
   return <BlockNoteView editor={editor} />;
 }
