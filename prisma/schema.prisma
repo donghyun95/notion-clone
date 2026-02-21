@@ -24,51 +24,128 @@ model User {
   workspaces WorkspaceMember[]
 
   // 작성한 페이지들
-  pages Page[]
+  pagesCreated Page[] @relation("PageCreatedBy")
+  pagesEdited  Page[] @relation("PageLastEditedBy")
 
-  // ✅ 내가 owner인 워크스페이스들 (이 줄 추가)
+  // 작성한 블록들
+  blocksCreated Block[] @relation("BlockCreatedBy")
+  blocksEdited  Block[] @relation("BlockLastEditedBy")
+
+  // 내가 owner인 워크스페이스들
   ownedWorkspaces Workspace[] @relation("WorkspaceOwner")
 }
 
 model Workspace {
-  id        String            @id @default(cuid())
-  name      String
-  ownerId   String
-  owner     User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
-  members   WorkspaceMember[]
-  pages     Page[]
-  createdAt DateTime          @default(now())
+  id   String @id @default(cuid())
+  name String
+
+  ownerId String
+  owner   User   @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+
+  members WorkspaceMember[]
+  pages   Page[]
+
+  createdAt DateTime @default(now())
+
+  @@index([ownerId])
 }
 
 model WorkspaceMember {
-  id          String    @id @default(cuid())
+  id          String @id @default(cuid())
   workspaceId String
   userId      String
   role        Role
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
-  user        User      @relation(fields: [userId], references: [id])
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
 
   @@unique([workspaceId, userId])
+  @@index([userId])
 }
 
 model Page {
   id          String  @id @default(cuid())
-  title       String
+  title       String  @default("Untitled")
   workspaceId String
   parentId    String?
-  authorId    String
+
+  createdById    String
+  lastEditedById String?
+
+  isDeleted Boolean @default(false)
 
   workspace Workspace @relation(fields: [workspaceId], references: [id])
-  author    User      @relation(fields: [authorId], references: [id])
-  parent    Page?     @relation("PageHierarchy", fields: [parentId], references: [id])
-  children  Page[]    @relation("PageHierarchy")
+
+  createdBy    User  @relation("PageCreatedBy", fields: [createdById], references: [id])
+  lastEditedBy User? @relation("PageLastEditedBy", fields: [lastEditedById], references: [id])
+
+  parent   Page?  @relation("PageHierarchy", fields: [parentId], references: [id])
+  children Page[] @relation("PageHierarchy")
+
+  blocks Block[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([workspaceId])
+  @@index([parentId])
+  @@index([createdById])
+  @@index([lastEditedById])
+}
+
+model Block {
+  id String @id @default(cuid())
+
+  pageId        String
+  parentBlockId String?
+
+  type BlockType
+  // 타입별 내용(문단/체크박스/이미지/코드 등)을 JSON으로 저장
+  // 예: { "text": "..."} / { "checked": true, "text": "..."} / { "url": "...", "caption": "..." }
+  data Json      @default("{}")
+
+  // 정렬 순서: 중간 삽입/드래그앤드롭을 위해 Float 권장
+  position Float
+
+  createdById    String
+  lastEditedById String?
+
+  isDeleted Boolean @default(false)
+
+  page Page @relation(fields: [pageId], references: [id])
+
+  parentBlock Block?  @relation("BlockHierarchy", fields: [parentBlockId], references: [id])
+  children    Block[] @relation("BlockHierarchy")
+
+  createdBy    User  @relation("BlockCreatedBy", fields: [createdById], references: [id])
+  lastEditedBy User? @relation("BlockLastEditedBy", fields: [lastEditedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pageId])
+  @@index([parentBlockId])
+  @@index([createdById])
+  @@index([lastEditedById])
+  @@index([type])
 }
 
 enum Role {
-  OWNER
   EDITOR
   VIEWER
+}
+
+enum BlockType {
+  paragraph
+  heading1
+  heading2
+  heading3
+  bulleted_list
+  numbered_list
+  todo
+  toggle
+  quote
+  divider
+  image
+  code
 }
